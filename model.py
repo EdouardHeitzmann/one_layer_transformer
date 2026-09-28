@@ -4,6 +4,11 @@ from loss import loss_fn
 from data import generate_data_tensor
 from forward import forward_pass
 
+
+from embedding import embedding
+from attention import attention
+from mlp import mlp
+from unembedding import unembedding
     
 
 
@@ -47,7 +52,10 @@ class model( nn.Module ) :
 
     def forward( self, x : torch.Tensor ) :
         """Return logits for a batch of token sequences via forward_pass."""
-        return forward_pass( self, x )
+        x0 = embedding(self, x)
+        x1 = attention(self, x0)
+        x2 = mlp(self, x1)
+        return unembedding(self, x2)
 
 
     def train( self, in_tensor, out_tensor, dry_run=False ) :
