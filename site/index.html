@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Class project: assemble and train a small transformer for modular addition.">
+  <title>Build a one-layer transformer · Class project</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="site-header"><div class="site-header-inner"><a class="brand" href="#top">Modular Addition Transformer</a><span class="header-note">A collaborative build, test, and training lab</span></div></header>
+  <div class="layout" id="top">
+    <nav class="toc" aria-label="On this page"><strong>On this page</strong><ol>
+      <li><a href="#goal">The goal</a></li><li><a href="#architecture">1. Read the architecture</a></li>
+      <li><a href="#training-idea">2. Understand training</a></li><li><a href="#workspace">3. Open a workspace</a></li>
+      <li><a href="#verify">4. Verify the setup</a></li><li><a href="#groups">5. Divide the work</a></li>
+      <li><a href="#tests-first">6. Write a test first</a></li><li><a href="#implement">7. Implement and commit</a></li>
+      <li><a href="#pr">8. Open a pull request</a></li><li><a href="#protocol">9. Plan the experiment</a></li>
+      <li><a href="#run">10. Train and visualize</a></li>
+    </ol></nav>
+    <main>
+      <div class="hero" id="goal">
+        <p class="eyebrow">Class project · Collaborative lab</p>
+        <h1>Build a one-layer transformer</h1>
+        <p class="lead">Groups implement the pieces of a small model and test one another's work. We bring the pieces together, train on addition modulo <em>N</em>, and ask what the model learned.</p>
+        <p class="meta">You need a GitHub account and a browser. Start from the <a href="https://github.com/jonathanwise/one_layer_transformer">one_layer_transformer class repository</a>, using its <code>project</code> branch. Keep the <a href="torch-reference.html">PyTorch quick reference</a> open while you work.</p>
+        <div class="checkpoint"><strong>What you will submit.</strong> A pull request with a separate commit for each new test and each function you implement. Start with your assigned test and implementation, then add tests for <code>forward.py</code> and the remaining functions as time allows. Your group should be able to explain each test's expected result.</div>
+      </div>
+
+      <section class="task" id="architecture"><p class="task-number">Task 1</p><h2>Read the architecture</h2>
+        <p>Here <em>N</em> means the value of <code>modulus</code> in <code>config.py</code>. Our examples are equations <code>a + b = c (mod N)</code>, with <code>0 ≤ a, b &lt; N</code>. The input is <code>(a, b, ?)</code>; the target is <code>(a, b, c)</code>. The extra token <code>?</code> has integer ID <code>N</code>. Each token becomes a one-hot vector of length <code>N + 1</code>.</p>
+        <figure class="figure"><img src="architecture.svg" alt="Architecture diagram: one-hot input x and embeddings x0 feed four independent attention heads. Each head h has separate W_Q[h], W_K[h], W_V[h], and W_O[h], and produces O_h. Sum the four O_h outputs and add x0 to make x1. The MLP produces x2, W_U produces logits, and the last-token loss compares logits with y."><figcaption>Each of the four heads has its own Q, K, V, and O weights. Their outputs are summed after W_O, then added to the residual x0. Read the boxes from top to bottom.</figcaption></figure>
+        <p>In <code>forward.py</code>, the named activations are <code>x0</code>, <code>S</code>, <code>A</code>, <code>x1</code>, <code>mlp</code>, <code>x2</code>, and <code>logits</code>. The learned parameters are <code>W_E</code>, <code>W_p</code>, <code>W_Q</code>, <code>W_K</code>, <code>W_V</code>, <code>W_O</code>, <code>W_i</code>, <code>b_i</code>, <code>W_o</code>, <code>b_o</code>, and <code>W_U</code>. The code stores all four heads in each weight tensor; <code>W_Q[h]</code>, for example, is the separate query matrix for head <code>h</code>. Each Q, K, and V matrix maps from <code>D</code> to <code>K</code> dimensions, while each O matrix maps back from <code>K</code> to <code>D</code>. Find each parameter in <code>model.py</code>.</p>
+        <div class="aside">This is a teaching model, not a full language model. The current forward pass has one attention block, no causal mask, no attention scaling, and no layer normalization. Its MLP bias placement follows the source code exactly. We score only the answer position.</div>
+        <div class="checkpoint"><strong>Checkpoint.</strong> Point to where the unknown answer enters the model, where heads combine, and where <code>N + 1</code> output scores appear.</div>
+      </section>
+
+      <section class="task" id="training-idea"><p class="task-number">Task 2</p><h2>Understand one training step</h2>
+        <ol><li>The model makes a forward pass and produces <em>logits</em>, one score for each possible answer token.</li><li><code>loss_fn</code> compares the logits at the final position with the correct answer. Lower cross-entropy means the correct answer received more probability.</li><li><code>loss.backward()</code> uses backpropagation to compute how changing each parameter would change the loss: its gradient.</li><li>The optimizer changes the parameters in a direction expected to lower the loss. Repeat on the training examples.</li></ol>
+        <p>Ordinary stochastic gradient descent (SGD) applies roughly the same learning rate to every parameter's current gradient. <strong>AdamW</strong> also tracks moving averages of past gradients and squared gradients, so it adjusts each parameter's step size. Its weight decay is applied separately from the gradient update. This project creates an <code>AdamW</code> optimizer in <code>model.py</code>.</p>
+        <p>In this small project, one call to <code>model.train(inputs, targets)</code> performs one optimizer step. This is a project-specific use of the name <code>train</code>; standard PyTorch uses <code>train()</code> to toggle training mode.</p>
+      </section>
+
+      <section class="task" id="workspace"><p class="task-number">Task 3</p><h2>Open your GitHub workspace</h2>
+        <p>Open <a href="https://github.com/codespaces">GitHub Codespaces</a> and sign in. Choose <strong>New codespace</strong>, select the <code>jonathanwise/one_layer_transformer</code> repository and its <code>project</code> branch, then create the Codespace. This clones the <code>project</code> branch into your workspace automatically. If your group shares one screen, one member can drive while the others review.</p>
+        <p>In the Codespace terminal, confirm that you started from <code>project</code>, then create your group's branch from it. Use the group name assigned by the instructor:</p>
+        <pre><code>git branch --show-current   # should print project
+git switch -c group-tokenizer
+git status</code></pre>
+        <p>If Codespaces is unavailable, clone the <code>project</code> branch on a computer with Python and Git:</p>
+        <pre><code>git clone --branch project https://github.com/jonathanwise/one_layer_transformer.git
+cd one_layer_transformer
+git switch -c group-tokenizer</code></pre>
+        <p>Do not put a second clone inside an existing Codespace.</p>
+      </section>
+
+      <section class="task" id="verify"><p class="task-number">Task 4</p><h2>Verify that you can run and edit code</h2>
+        <p>From the repository root in the terminal, install the small class dependency set and run the reference tests:</p>
+        <pre><code>python -m pip install -r requirements.txt
+python -m pytest -q</code></pre>
+        <p><code>requirements.txt</code> lists the packages needed for the class project and its tests. On an incomplete scaffold, some tests may fail until groups implement their functions. A missing dependency or import error is a setup problem; an assertion failure about a missing function is part of the exercise.</p>
+        <p>Open your assigned Python file. Add a temporary comment, save it, and check <code>git status</code>: the file should appear as modified. Remove that comment before making your real commit.</p>
+        <div class="checkpoint"><strong>Checkpoint.</strong> You can run a Python command, run the reference tests, edit a file, and see the change in <code>git status</code>.</div>
+      </section>
+
+      <section class="task" id="groups"><p class="task-number">Task 5</p><h2>Divide the work</h2>
+        <p>Give every group one implementation area and one <em>different</em> area for its first test. The table shows a possible assignment; the instructor can rotate or repeat areas as needed.</p>
+        <table><thead><tr><th>Group</th><th>Implement</th><th>First test: choose a function in</th></tr></thead><tbody>
+          <tr><td>A</td><td><code>tokenizer.py</code>: one-hot encoding and parsing</td><td><code>data.py</code></td></tr>
+          <tr><td>B</td><td><code>data.py</code>: unique modular equations</td><td><code>loss.py</code></td></tr>
+          <tr><td>C</td><td><code>loss.py</code>: answer-position cross-entropy</td><td><code>forward.py</code></td></tr>
+          <tr><td>D</td><td><code>forward.py</code>: attention, MLP, logits</td><td><code>tokenizer.py</code></td></tr>
+        </tbody></table>
+        <p>After the first test and your implementation, everyone should test <code>forward.py</code> (the group implementing it may use that time to strengthen its forward tests). Then try to add a test for every remaining function, including functions in your own file. The functions are <code>tokenize_tensor</code>, <code>tokenize_values</code>, <code>tokenize_string</code>, <code>generate_data</code>, <code>generate_data_tensor</code>, <code>loss_fn</code>, and <code>forward_pass</code>. The reference tests in <code>tests/</code> are examples; add distinct cases to the matching <code>tests/test_*.py</code> files. Read each docstring and agree on shapes and meanings before changing code. The instructor owns <code>config.py</code> and the model's parameter definitions, so groups should leave those files alone.</p>
+      </section>
+
+      <section class="task" id="tests-first"><p class="task-number">Task 6</p><h2>Write your test first</h2>
+        <p>Choose a tiny case where you can predict the answer by hand. For example, a data test can check that a sampled pair <code>(a, b)</code> has target <code>(a+b) % N</code>; a loss test can check that changing logits at a known input position does not change answer loss. Use the reference tests for style, then add a case they do not cover.</p>
+        <pre><code>python -m pytest -q tests/test_data.py
+git add tests/test_data.py
+git commit -m "test: check one modular equation"</code></pre>
+        <p>Replace the filename and message with your assigned first test. A failing test is useful if it fails for the behavior you intend to implement. Show the instructor the failure and your expected result.</p>
+      </section>
+
+      <section class="task" id="implement"><p class="task-number">Task 7</p><h2>Implement, test, and commit</h2>
+        <p>Implement only the function(s) assigned to your group. Run your focused tests, then the complete suite. Read failures from the first traceback line that points to your code. Ask another group about an interface mismatch before changing a shared contract.</p>
+        <pre><code>python -m pytest -q tests/test_tokenizer.py
+python -m pytest -q
+git diff
+git add tokenizer.py
+git commit -m "Implement tokenize_tensor"</code></pre>
+        <p>Replace <code>tokenizer.py</code> and <code>tokenize_tensor</code> with your assigned file and first function. If your file contains more than one function, implement and commit each one separately. Next, add a new <code>forward.py</code> test unless that was already your assigned test; the forward implementation group should review and strengthen its own forward tests. Then test the remaining functions one by one, aiming to understand every function. Run each new test and make a separate commit for it. If a function needs a correction later, make another small commit for the correction.</p>
+        <pre><code>python -m pytest -q tests/test_forward.py
+git add tests/test_forward.py
+git commit -m "test: check forward behavior"
+python -m pytest -q
+git push -u origin HEAD</code></pre>
+        <p>Commit any tests for the other functions before pushing. Do not commit model checkpoints, data copies, or plots.</p>
+        <div class="checkpoint"><strong>Checkpoint.</strong> Your branch has separate commits for its first test, implementation, and added tests. Run the full suite and check <code>git status</code> before opening a PR.</div>
+      </section>
+
+      <section class="task" id="pr"><p class="task-number">Task 8</p><h2>Open a pull request</h2>
+        <p>After pushing, open the repository on GitHub. Click <strong>Compare &amp; pull request</strong> (or <strong>Pull requests → New pull request</strong>). Set the base branch to <code>project</code> and the compare branch to your group branch. Give the PR a title such as <code>Implement data generation and test loss</code>.</p>
+        <p>In the description, state what you implemented, list the functions you tested and what those tests check, and give the command you ran. Ask one student from another group to review it. Address comments with new commits on the same branch; the PR updates automatically. The instructor will merge after checking that the pieces fit together.</p>
+        <div class="aside">If GitHub says you cannot push to the class repository, tell the instructor. You need collaborator access or a fork-based PR; do not share a password or token with classmates.</div>
+      </section>
+
+      <section class="task" id="protocol"><p class="task-number">Task 9</p><h2>Agree on a training protocol</h2>
+        <p>There are exactly <code>N²</code> ordered input pairs: <code>N</code> choices for <code>a</code> and <code>N</code> for <code>b</code>. Shuffle them once with a fixed seed. Use about 80% of the distinct pairs for training and keep the rest held out for evaluation. The script computes this split from <code>config.modulus</code>; you may override it with <code>--train-size</code>. Never take an optimizer step on held-out examples. Keep the same split and seed when comparing runs.</p>
+        <p>At step 0 and after every optimizer step, record answer-token loss and answer accuracy on both sets. The training set tells us how well the model fits examples it sees. The held-out set asks whether it has learned a rule that works on new pairs. With a small <code>N</code>, the held-out set is also small, so one changed prediction can move its accuracy substantially.</p>
+        <p>For a stricter experiment, split into train, validation, and final test sets: tune choices using validation, then evaluate the untouched test set only once. Our two-way class run calls its second set <em>held-out</em>; repeated inspection makes it function like a validation set.</p>
+        <div class="checkpoint"><strong>Prediction before training.</strong> Write down whether you expect training and held-out loss to fall together. What would a widening gap mean?</div>
+      </section>
+
+      <section class="task" id="run"><p class="task-number">Task 10</p><h2>Train, plot, and discuss</h2>
+        <p>After the instructor merges the PRs, update your workspace. First run the tests and a short training smoke test; then run the full experiment:</p>
+        <pre><code>git switch project
+git pull
+python -m pytest -q
+python train_experiment.py --epochs 2
+python train_experiment.py --epochs 200</code></pre>
+        <p>The script writes <code>runs/metrics.csv</code>, <code>runs/loss.png</code>, and <code>runs/accuracy.png</code>. The loss plot has one line for training and one for held-out data; the accuracy plot shows the fraction of correct final answers. Examine the curves and report the final values and the step where the gap became noticeable, if any.</p>
+        <h3>Optional: run the merged project in Colab</h3>
+        <p>Open a new Colab notebook and run these cells. This small data set can run on Colab's CPU; a GPU is optional.</p>
+        <pre><code>!git clone --branch project https://github.com/jonathanwise/one_layer_transformer.git
+%cd one_layer_transformer
+!python -m pip install -q pytest
+!python -m pytest -q
+!python train_experiment.py --epochs 200</code></pre>
+        <p>The clone command works when the repository is public. If it is private, ask the instructor for a safe way to provide the files; do not paste an access token into a shared notebook. Open <code>runs/loss.png</code> and <code>runs/accuracy.png</code> in Colab's Files panel, or display them with <code>from IPython.display import Image, display</code> followed by <code>display(Image("runs/loss.png"))</code>. Colab runtime files are temporary, so download plots you want to keep.</p>
+        <p>For a second experiment, change only one choice—such as <code>N</code>, the random seed, number of training pairs, or number of training steps—and compare curves. Keep the first run as your baseline. Optional visualizations: an <code>N × N</code> grid of correct and incorrect answers, or the model's probability assigned to the correct answer over time. Larger <code>N</code> means more data and a wider vocabulary, so training may take longer. Later we will inspect how the network represents and solves addition.</p>
+        <div class="checkpoint"><strong>What to hand in.</strong> Your PR link, one sentence about what your test catches, the two plots, and a short explanation of the gap between training and held-out behavior.</div>
+      </section>
+
+      <footer class="footer">Designed for this modular-addition repository. Page layout and task rhythm are inspired by <a href="https://katestange.net/ai/course/llm-course/project/step-1/">Project Step 1: A Bigram Model from Counts</a>.</footer>
+    </main>
+  </div>
+</body>
+</html>
