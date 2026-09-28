@@ -1,0 +1,5 @@
+# Packages used by the class project and its reference tests.
+# Install in Codespaces with: python -m pip install -r requirements.txt
+torch
+matplotlib
+pytest
