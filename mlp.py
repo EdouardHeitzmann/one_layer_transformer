@@ -9,4 +9,4 @@ def mlp(model, x1: torch.Tensor) -> torch.Tensor:
     Compute the hidden activation as ReLU(x1 @ model.W_i + model.b_i),
     then return hidden @ model.W_o + model.b_o.
     """
-    raise NotImplementedError("Implement mlp in mlp.py")
+    return x2

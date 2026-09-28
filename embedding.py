@@ -9,4 +9,4 @@ def embedding(model, x: torch.Tensor) -> torch.Tensor:
     Multiply x [batch, context, vocab] by model.W_E [vocab, model width],
     then add model.W_p [context, model width] at every batch item.
     """
-    raise NotImplementedError("Implement embedding in embedding.py")
+    return x0

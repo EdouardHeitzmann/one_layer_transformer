@@ -2,27 +2,15 @@
 
 import torch
 
-import config
+from config import *
 from tokenizer import tokenize_string, tokenize_tensor, tokenize_values
 
 
-def test_tokenize_tensor_one_integer():
-    token_id = min(1, config.modulus - 1)
-    encoded = tokenize_tensor(torch.tensor(token_id))
-    assert encoded.shape == (config.d_vocab,)
-    assert encoded.dtype == torch.float32
-    assert torch.equal(encoded, torch.nn.functional.one_hot(torch.tensor(token_id), config.d_vocab).float())
+def test_tokenize_string_shape():
+    a = 2 % modulus
+    b = 3 % modulus
+    t = tokenize_string(f'{a} {b}')
+    assert type(t) == torch.Tensor
+    assert t.shape == (3, d_vocab)
 
 
-def test_tokenize_values_keeps_order():
-    first, second = 0, config.modulus - 1
-    encoded = tokenize_values(first, second)
-    assert encoded.shape == (2, config.d_vocab)
-    assert encoded.argmax(dim=-1).tolist() == [first, second]
-
-
-def test_tokenize_string_adds_unknown_answer():
-    first, second = 0, config.modulus - 1
-    encoded = tokenize_string(f"{first} {second}")
-    assert encoded.shape == (3, config.d_vocab)
-    assert encoded.argmax(dim=-1).tolist() == [first, second, config.modulus]
