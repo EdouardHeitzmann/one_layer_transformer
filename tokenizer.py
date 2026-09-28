@@ -11,7 +11,7 @@ def tokenize_tensor( tokens ) :
     Return float32 values. IDs 0 through modulus-1 represent numbers, and
     the final ID (modulus) represents the unknown answer token.
     """
-    return nn.functional.one_hot( tokens, config.d_vocab ).to( torch.float32 )
+    return tokenized
 
 def tokenize_values( *tokens ) :
     """One-hot encode a sequence of integer token IDs into (count, d_vocab)."""
