@@ -1,7 +1,7 @@
 
 import torch
 
-import config
+from config import *
 from tokenizer import tokenize_tensor
 
 def generate_data( n : int ) :
@@ -11,13 +11,14 @@ def generate_data( n : int ) :
     modulus is the unknown-answer token, and targets (a, b, (a+b) % modulus).
     Use 0 <= n <= modulus**2.
     """
-    a,b = torch.meshgrid( torch.arange(config.modulus), torch.arange(config.modulus),
+    a,b = torch.meshgrid( torch.arange(modulus), torch.arange(modulus),
                           indexing='ij' )
-    c = (a + b) % config.modulus
-    abc = torch.stack((a, b, c), dim=-1)
-    out_data = abc.reshape(config.modulus**2,3)[torch.randperm(config.modulus**2)[:n]]
+    c = (a+b) % modulus
+    abc = torch.stack((a,b,c), dim=-1)
+    p = torch.randperm(modulus**2)
+    out_data = abc.reshape(abc.shape[0]*abc.shape[1], abc.shape[2])[p[:n]]
     in_data = out_data.clone()
-    in_data[:,-1] = config.modulus
+    in_data[:,-1] = modulus
     return in_data, out_data
 
 def generate_data_tensor( n : int ) :
