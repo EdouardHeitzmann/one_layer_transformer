@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PyTorch reference · Modular Addition Transformer</title><link rel="stylesheet" href="style.css"></head>
+<body>
+  <header class="site-header"><div class="site-header-inner"><a class="brand" href="index.html">Modular Addition Transformer</a><span class="header-note">Quick PyTorch reference</span></div></header>
+  <div class="layout">
+    <nav class="toc" aria-label="On this page"><strong>On this page</strong><ol>
+      <li><a href="#shapes">Shapes and dimensions</a></li><li><a href="#create">Create data</a></li><li><a href="#reshape">Shape and combine</a></li><li><a href="#forward">Forward pass</a></li><li><a href="#training">Training</a></li><li><a href="#testing">Testing and evaluation</a></li>
+    </ol><p class="tiny"><a href="index.html">← Back to project tasks</a></p></nav>
+    <main>
+      <div class="hero"><p class="eyebrow">Reference sheet</p><h1>PyTorch calls you will use</h1><p class="lead">The commands below appear in this project or are useful for checking it. Here <em>N</em> is <code>config.modulus</code>, <code>d_vocab = N + 1</code>, and model inputs have shape <code>(batch, 3, N + 1)</code>.</p></div>
+      <section class="task" id="shapes"><h2>First, read the shapes</h2><p>A tensor's <code>shape</code> lists its axis lengths. For <code>x.shape == (B, 3, N + 1)</code>, there are <code>B</code> equations, three token positions per equation, and <code>N + 1</code> vocabulary entries per token. Axis <code>0</code> is batch, <code>1</code> is position, and <code>2</code> or <code>-1</code> is vocabulary. A negative axis counts from the end: <code>-2</code> is position here.</p><p><code>dim</code> tells PyTorch which axis an operation uses. In <code>scores.softmax(dim=-1)</code>, each row is normalized across its last axis. In <code>values.sum(dim=-1)</code>, that axis disappears unless <code>keepdim=True</code>.</p></section>
+      <section class="task" id="create"><h2>Create and encode data</h2>
+        <table><thead><tr><th>Call</th><th>Arguments to supply</th><th>Result in this project</th></tr></thead><tbody>
+          <tr><td><code>torch.tensor(data, dtype=...)</code></td><td><code>data</code> is a number or nested list; optional <code>dtype</code> selects the number type.</td><td><code>torch.tensor([0, 1, N])</code> makes three integer token IDs when <code>N</code> is the configured modulus. Integer IDs are suitable for one-hot encoding.</td></tr>
+          <tr><td><code>torch.arange(end)</code></td><td><code>end</code> is excluded.</td><td><code>torch.arange(config.modulus)</code> gives IDs <code>0, …, N−1</code>. You can also pass <code>start, end, step</code>.</td></tr>
+          <tr><td><code>torch.meshgrid(a, b, indexing="ij")</code></td><td><code>a</code> and <code>b</code> are 1D tensors; use <code>indexing="ij"</code> so axes follow input order.</td><td>Two <code>(N, N)</code> grids holding every ordered pair of numbers.</td></tr>
+          <tr><td><code>torch.randperm(n)</code></td><td><code>n</code> is a nonnegative integer.</td><td>A shuffled ordering of <code>0, …, n−1</code>; use it to sample pairs without replacement.</td></tr>
+          <tr><td><code>torch.manual_seed(seed)</code></td><td><code>seed</code> is an integer.</td><td>Sets PyTorch's random seed so a run can reproduce the same shuffle and initialization.</td></tr>
+          <tr><td><code>torch.nn.functional.one_hot(ids, num_classes=config.d_vocab)</code></td><td><code>ids</code> must contain integer class IDs from <code>0</code> through <code>N</code>; <code>num_classes</code> fixes output width.</td><td>Appends an axis of length <code>N + 1</code>. A <code>(batch, 3)</code> input becomes <code>(batch, 3, N + 1)</code>. It returns integer values; use <code>.to(torch.float32)</code> for model math.</td></tr>
+        </tbody></table>
+      </section>
+      <section class="task" id="reshape"><h2>Shape and combine tensors</h2>
+        <table><thead><tr><th>Call</th><th>Arguments to supply</th><th>What it does</th></tr></thead><tbody>
+          <tr><td><code>torch.stack((a, b, c), dim=-1)</code></td><td>Same-shaped tensors and the axis where a <em>new</em> dimension goes.</td><td>Three <code>(N, N)</code> grids become one <code>(N, N, 3)</code> tensor of equations.</td></tr>
+          <tr><td><code>t.reshape(N**2, 3)</code></td><td>The desired dimensions; their product must equal the number of elements.</td><td>Flattens an <code>(N, N, 3)</code> grid into <code>N²</code> equations.</td></tr>
+          <tr><td><code>t.unsqueeze(dim)</code></td><td><code>dim</code> is where to insert an axis of length 1.</td><td><code>(3, N + 1)</code> with <code>unsqueeze(0)</code> becomes a one-example batch <code>(1, 3, N + 1)</code>.</td></tr>
+          <tr><td><code>t.squeeze(dim)</code></td><td>Optional <code>dim</code> selects a size-1 axis to remove.</td><td>Be careful: <code>squeeze()</code> with no <code>dim</code> also removes a batch axis when batch size is 1.</td></tr>
+          <tr><td><code>t.mT</code></td><td>No arguments.</td><td>Swaps the last two axes of a matrix or batch of matrices; used for <code>Q @ K.mT</code>.</td></tr>
+          <tr><td><code>t.to(torch.float32)</code></td><td>A target dtype; alternatively pass a device such as <code>"cpu"</code>.</td><td>Converts integer one-hot values to floating point for multiplication with weights.</td></tr>
+        </tbody></table>
+      </section>
+      <section class="task" id="forward"><h2>Compute the forward pass</h2>
+        <table><thead><tr><th>Call</th><th>Arguments to supply</th><th>What it does</th></tr></thead><tbody>
+          <tr><td><code>a @ b</code></td><td>Two tensors whose matrix dimensions align.</td><td>Matrix multiplication. For example, <code>x @ W_E</code> maps vocabulary vectors to hidden vectors; <code>*</code> means elementwise multiplication instead.</td></tr>
+          <tr><td><code>torch.relu(t)</code></td><td>A numeric tensor.</td><td>Replaces negative values with zero; used in the MLP.</td></tr>
+          <tr><td><code>t.max(dim=-1, keepdim=True).values</code></td><td>The axis to reduce and whether to retain it at length 1.</td><td>Finds each row's maximum. Keeping the axis lets the maximum broadcast back across that row before softmax.</td></tr>
+          <tr><td><code>t.softmax(dim=-1)</code></td><td>The axis of competing choices.</td><td>Turns attention scores into nonnegative weights that sum to 1 across that axis.</td></tr>
+          <tr><td><code>t.log_softmax(dim=-1)</code></td><td>For logits, use the vocabulary axis <code>-1</code>.</td><td>Computes log probabilities directly; used in cross-entropy for better numerical stability than taking <code>log(softmax(...))</code>.</td></tr>
+          <tr><td><code>t.sum(dim=...)</code> / <code>t.mean(dim=...)</code></td><td>The axis to reduce; omit <code>dim</code> to reduce all elements.</td><td>Sum over heads or vocabulary; average per-example losses into one scalar.</td></tr>
+        </tbody></table>
+        <p class="tiny">PyTorch broadcasts size-1 axes during compatible arithmetic. Write down shapes before using a broadcast; a shape that runs is not automatically the shape you intended.</p>
+      </section>
+      <section class="task" id="training"><h2>Parameters and optimization</h2>
+        <table><thead><tr><th>Call</th><th>Arguments to supply</th><th>What it does</th></tr></thead><tbody>
+          <tr><td><code>torch.randn(shape)</code></td><td>Dimensions, for example <code>torch.randn(config.d_vocab, config.d_model)</code>.</td><td>Creates random normal values to initialize a weight matrix.</td></tr>
+          <tr><td><code>nn.Parameter(t)</code></td><td>A tensor <code>t</code> containing initial values.</td><td>Registers a learnable tensor on an <code>nn.Module</code>, so <code>model.parameters()</code> finds it.</td></tr>
+          <tr><td><code>torch.optim.AdamW(model.parameters(), lr=0.001, weight_decay=1.0)</code></td><td>Learnable parameters, learning rate <code>lr</code>, and decoupled weight decay strength.</td><td>Creates the optimizer used by this project. The example values are from <code>config.py</code>, not universal defaults.</td></tr>
+          <tr><td><code>optimizer.zero_grad()</code></td><td>No required arguments.</td><td>Clears gradients left by the previous step; otherwise new gradients accumulate.</td></tr>
+          <tr><td><code>loss.backward()</code></td><td>Here <code>loss</code> is one scalar tensor.</td><td>Backpropagates through recorded operations and fills each parameter's <code>.grad</code>.</td></tr>
+          <tr><td><code>optimizer.step()</code></td><td>No required arguments for AdamW here.</td><td>Updates parameters using their gradients. Call it after <code>backward()</code>.</td></tr>
+          <tr><td><code>with torch.no_grad():</code></td><td>A Python block, not a function argument.</td><td>Stops recording gradients while measuring train or held-out performance.</td></tr>
+        </tbody></table>
+        <pre><code>optimizer.zero_grad()
+logits = model(inputs)
+loss = loss_fn(targets, logits)
+loss.backward()
+optimizer.step()</code></pre>
+      </section>
+      <section class="task" id="testing"><h2>Useful checks in tests</h2>
+        <table><thead><tr><th>Call</th><th>Arguments to supply</th><th>Question it answers</th></tr></thead><tbody>
+          <tr><td><code>t.shape</code> / <code>t.dtype</code></td><td>No arguments.</td><td>Does the tensor have the promised dimensions and number type?</td></tr>
+          <tr><td><code>t.argmax(dim=-1)</code></td><td>The axis containing competing scores.</td><td>Which token has the largest score? Use the last axis to decode one-hot vectors or logits.</td></tr>
+          <tr><td><code>torch.equal(a, b)</code></td><td>Two tensors.</td><td>Are shape and all values exactly equal? Good for integer IDs.</td></tr>
+          <tr><td><code>torch.isclose(a, b, atol=1e-6)</code></td><td>Two numeric tensors and an optional absolute tolerance.</td><td>Are floating-point values close enough for a small calculation?</td></tr>
+          <tr><td><code>torch.isfinite(t).all()</code></td><td>A numeric tensor.</td><td>Are all results finite, with no <code>nan</code> or infinity?</td></tr>
+        </tbody></table>
+        <p>Start with one hand-computable input, then test a boundary or shape case. The <a href="index.html#tests-first">project task</a> asks each group to add a new test beyond the reference tests.</p>
+      </section>
+      <footer class="footer">For complete signatures and edge cases, see the <a href="https://docs.pytorch.org/docs/stable/index.html">official PyTorch documentation</a>. In particular: <a href="https://docs.pytorch.org/docs/stable/generated/torch.meshgrid.html">meshgrid</a>, <a href="https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.one_hot.html">one_hot</a>, and <a href="https://docs.pytorch.org/docs/stable/generated/torch.optim.AdamW.html">AdamW</a>.</footer>
+    </main>
+  </div>
+</body>
+</html>
