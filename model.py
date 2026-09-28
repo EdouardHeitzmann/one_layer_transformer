@@ -1,49 +1,8 @@
-import torch
-from torch import nn
-
-LR = .001
-WEIGHT_DECAY = 1.
-
-modulus = 7
-d_vocab = modulus + 1
-d_model = 128
-d_head = 32
-num_heads = 4
-d_mlp = 512
-d_context = 3
-
-def tokenize_tensor( tokens ) :
-    return nn.functional.one_hot( tokens, d_vocab ).to( torch.float32 )
-
-def tokenize_values( *tokens ) :
-    return tokenize_tensor( torch.tensor(tokens) )
-
-def tokenize_string( s ) :
-    l = s.split(' ')
-    v = [ int(l[0]), int(l[1]), d_vocab-1 ]
-    return tokenize_values(*v)
-
-def loss_fn( y, z ) :
-    """
-    y is training data, shape (..., d_context, d_vocab), in probabilities
-    z is model output, shape (..., d_contact, d_vocab), in logits
-    computes the cross entropy loss at the last token only
-    """
-    return - ( y * z.log_softmax(dim=-1) ).sum(dim=-1)[:,...].mean()
-
-
-def generate_data( n : int ) :
-    a,b = torch.meshgrid( torch.arange(modulus), torch.arange(modulus) )
-    c = (a + b) % modulus
-    abc = torch.stack((a, b, c), dim=-1)
-    out_data = abc.reshape(modulus**2,3)[torch.randperm(modulus**2)[:n]]
-    in_data = out_data.clone()
-    in_data[:,-1] = modulus
-    return in_data, out_data
-
-def generate_data_tensor( n : int ) :
-    in_data, out_data = generate_data(n)
-    return tokenize_tensor(in_data), tokenize_tensor(out_data) 
+from config import *
+from tokenizer import tokenize_tensor, tokenize_string, tokenize_values
+from loss import loss_fn
+from data import generate_data_tensor
+from forward import forward_pass
 
     
 
@@ -51,6 +10,7 @@ def generate_data_tensor( n : int ) :
 
 class model( nn.Module ) :
     def __init__( self ) :
+        """Create the model's learnable weights and AdamW optimizer."""
         super().__init__()
 
         # initialize model parameters
@@ -86,19 +46,16 @@ class model( nn.Module ) :
 
 
     def forward( self, x : torch.Tensor ) :
-        x0 = x @ self.W_E + self.W_p
-        S = x0.unsqueeze(-3) @ self.W_Q.unsqueeze(-4) @  \
-            self.W_K.unsqueeze(-4).mT @ x0.unsqueeze(-3).mT
-        S -= S.max(dim=-1,keepdim=True).values
-        A = S.softmax(dim=-1)
-        x1 = (A @ x0.unsqueeze(-3) @ self.W_V @ self.W_O).sum(dim=-3) + x0
-        mlp = torch.relu(x1 @ self.W_i) + self.b_i
-        x2 = mlp @ self.W_o + self.b_o
-        logits = x2 @ self.W_U 
-        return logits.squeeze().expand_as(x)
+        """Return logits for a batch of token sequences via forward_pass."""
+        return forward_pass( self, x )
 
 
     def train( self, in_tensor, out_tensor, dry_run=False ) :
+        """Run one training step and return its scalar loss.
+
+        Clear gradients, compute logits and loss, and backpropagate. Update
+        weights unless dry_run is True; dry_run still computes gradients.
+        """
         self.optimizer.zero_grad()
         logits = self.forward(in_tensor)
         loss = loss_fn( out_tensor, logits )
