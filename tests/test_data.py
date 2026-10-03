@@ -6,6 +6,12 @@ import config
 from data import generate_data, generate_data_tensor
 
 
+def test_generate_data_output_length():
+    n = min(10, config.modulus**2)
+    inputs, targets = generate_data(n)
+    assert inputs.shape[0] == n
+    assert targets.shape[0] == n
+
 def test_generate_data_all_pairs_once():
     inputs, targets = generate_data(config.modulus**2)
     assert inputs.shape == targets.shape == (config.modulus**2, 3)

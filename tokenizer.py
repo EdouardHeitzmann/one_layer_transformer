@@ -8,8 +8,8 @@ import config
 def tokenize_tensor( tokens ) :
     """One-hot encode integer token IDs of any shape; append a d_vocab axis.
 
-    Return float32 values. IDs 0 through modulus-1 represent numbers, and
-    the final ID (modulus) represents the unknown answer token.
+    Return float32 values. With N = config.modulus, IDs 0 through N-1
+    represent numbers, and ID N represents the unknown answer token.
     """
     return nn.functional.one_hot( tokens, config.d_vocab ).to( torch.float32 )
 

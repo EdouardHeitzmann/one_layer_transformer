@@ -3,6 +3,7 @@ from tokenizer import tokenize_tensor, tokenize_string, tokenize_values
 from loss import loss_fn
 from data import generate_data_tensor
 from forward import forward_pass
+from training import *
 
     
 

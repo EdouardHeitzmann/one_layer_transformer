@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Local training output
+runs/
+
+# This project's hand-written class website (overrides the mkdocs rule above)
+!/site/
