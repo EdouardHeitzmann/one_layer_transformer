@@ -2,6 +2,6 @@
 
 import torch
 
-import config
+from config import *
 from tokenizer import tokenize_string, tokenize_tensor, tokenize_values
 

@@ -4,7 +4,7 @@ import math
 
 import torch
 
-import config
+from config import *
 from loss import loss_fn
 
 
