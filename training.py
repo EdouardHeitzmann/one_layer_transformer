@@ -25,7 +25,28 @@ def train( m : model, N : int, n : int,
         else :
             print(f'round {i} : training loss {training_loss}')
 
+
     return loss_history
 
+
+
+class trainer :
+    def __init__( self, m : model ):
+        self.m = m
+        self.epoch = 0
+
+    def train( self, in_training, out_training, n = None ) :
+        N = len(in_training)
+        if n == None : n = N
+        p = torch.randperm(in_training.shape[0])
+        for i in range(0,N,n) :
+            training_loss = self.m.train( in_training[p[i:i+n]], out_training[p[i:i+n]] )
+
+        m.writer.add_scalar( 'train/loss', training_loss, self.epoch )
+
+
+    def test( self, in_testing, out_testing ) :
+        testing_loss = self.m.train( in_testing, out_testing, dry_run=True )
+        m.writer.add_scalar( 'test/loss', testing_loss, self.epoch )
 
 

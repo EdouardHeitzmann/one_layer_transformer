@@ -14,9 +14,15 @@ class config:
     d_mlp : int = 512
     d_context : int = 3
 
+    logdir : str = 'runs'
+
     @property
     def d_vocab( self ) -> int :
         return self.modulus + 1
+
+
+
+
 
     
 

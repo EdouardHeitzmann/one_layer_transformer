@@ -11,6 +11,7 @@ from unembedding import unembedding
     
 import torch
 from torch import nn
+from torch.utils.tensorboard import SummaryWriter
 
 
 
@@ -49,6 +50,10 @@ class model( nn.Module ) :
         # setup optimizer
         self.optimizer = torch.optim.AdamW( self.parameters(), lr=c.LR, 
                                             weight_decay=c.WEIGHT_DECAY )
+
+
+        writer = SummaryWriter(c.logdir)
+
 
 
     def forward( self, x : torch.Tensor ) :
