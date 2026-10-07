@@ -3,3 +3,5 @@
 torch
 matplotlib
 pytest
+ipython
+tensorboard
