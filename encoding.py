@@ -17,7 +17,7 @@ def encode_tensor( c : config, tokens ) :
 
 def encode_values( c : config, *tokens ) :
     """One-hot encode a sequence of integer token IDs into (count, d_vocab)."""
-    return encode_tensor( torch.tensor(tokens), c=c )
+    return encode_tensor( c, torch.tensor(tokens) )
 
 def encode_string( c : config, s ) :
     """Parse two space-separated integers and encode (a, b, unknown answer).
@@ -26,4 +26,4 @@ def encode_string( c : config, s ) :
     """
     l = s.split(' ')
     v = [ int(l[0]), int(l[1]), c.d_vocab-1 ]
-    return encode_values(*v, c=c)
+    return encode_values(c, *v)
