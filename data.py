@@ -8,8 +8,8 @@ def generate_data( n : int ) :
     """
     Choose n distinct pairs (a, b) from 0..modulus-1, in random order.
     Return integer tensors of shape (n, 3): inputs (a, b, modulus), where
-    modulus is the unknown-answer token, and targets (a, b, (a+b) % modulus).
-    Use 0 <= n <= modulus**2.
+    modulus is the unknown-answer token, and targets (a, b, (a+b) modulo modulus).
+    Use 0 <= n <= modulus^2.
     """
     a,b = torch.meshgrid( torch.arange(modulus), torch.arange(modulus),
                           indexing='ij' )
