@@ -3,7 +3,7 @@
 import torch
 from torch import nn
 
-import config
+from config import *
 
 def encode_tensor( c : config, tokens ) :
     """One-hot encode integer token IDs of any shape; append a d_vocab axis.
