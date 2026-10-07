@@ -2,15 +2,13 @@
 
 import torch
 
-import config
+from config import *
 from data import generate_data, generate_data_tensor
 
 
-<<<<<<< Updated upstream
-=======
 def test_generate_data_output_length():
-    n = min(10, config.modulus**2)
-    inputs, targets = generate_data(n)
+    c = config(modulus=10)
+    n = c.modulus**2
+    inputs, targets = generate_data(c)
     assert inputs.shape[0] == n
     assert targets.shape[0] == n
->>>>>>> Stashed changes
