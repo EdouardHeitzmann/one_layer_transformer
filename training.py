@@ -42,11 +42,12 @@ class trainer :
         for i in range(0,N,n) :
             training_loss = self.m.train( in_training[p[i:i+n]], out_training[p[i:i+n]] )
 
-        m.writer.add_scalar( 'train/loss', training_loss, self.epoch )
+        self.m.writer.add_scalar( 'train/loss', training_loss, self.epoch )
+        self.epoch += 1
 
 
     def test( self, in_testing, out_testing ) :
         testing_loss = self.m.train( in_testing, out_testing, dry_run=True )
-        m.writer.add_scalar( 'test/loss', testing_loss, self.epoch )
+        self.m.writer.add_scalar( 'test/loss', testing_loss, self.epoch )
 
 

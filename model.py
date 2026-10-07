@@ -52,7 +52,7 @@ class model( nn.Module ) :
                                             weight_decay=c.WEIGHT_DECAY )
 
 
-        writer = SummaryWriter(c.logdir)
+        self.writer = SummaryWriter(c.logdir)
 
 
 
