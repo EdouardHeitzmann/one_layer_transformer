@@ -9,4 +9,4 @@ def embedding(model, x: torch.Tensor) -> torch.Tensor:
     Multiply x [batch, context, vocab] by W_E [vocab, model width],
     then add W_p [context, model width] at every batch item (broadcasting).
     """
-    return x @ model.W_E + model.W_pos
+    return x @ model.W_E + model.W_p
