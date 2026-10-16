@@ -3,6 +3,16 @@
 import torch
 
 
+
+def score( self, x0 ) :
+    S = x0.unsqueeze(-3) @ self.W_Q.unsqueeze(-4) @  \
+        self.W_K.unsqueeze(-4).mT @ x0.unsqueeze(-3).mT
+    S -= S.max(dim=-1,keepdim=True).values
+    return S
+
+    
+
+
 def attention(self, x0: torch.Tensor) -> torch.Tensor:
     """Return x1 of shape [batch, context, model width] from embedded input x0.
 
