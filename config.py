@@ -3,7 +3,7 @@ from dataclasses import dataclass
 
 @dataclass
 class config:
-    modulus : int = 7
+    modulus : int = 43
 
     LR : float = .001
     WEIGHT_DECAY : float = 1.
