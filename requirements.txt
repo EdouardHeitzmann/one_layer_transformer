@@ -1,7 +1,15 @@
-# Packages used by the class project and its reference tests.
-# Install in Codespaces with: python -m pip install -r requirements.txt
+# Packages used by the class project, its reference tests, and the notebooks.
+#
+# Quick setup with uv:
+#   uv venv && uv pip install -r requirements.txt
+#   .venv/bin/jupyter lab
+#
+# Or with pip: python -m pip install -r requirements.txt
 torch
+numpy
 matplotlib
+tensorboard
+jupyterlab
+ipykernel
 pytest
 ipython
-tensorboard
