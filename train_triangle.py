@@ -1,24 +1,14 @@
-"""Train the one-layer transformer on addition mod N with a triangle-wave MLP activation.
+"""Train the one-layer transformer with a triangle-wave MLP activation.
 
-The MLP's ReLU is replaced by  2 * | (x mod P) - P/2 |,  a continuous, periodic,
-piecewise-linear function with period P. Everything else (data, loss, optimizer,
-attention, embeddings) is the repository's code unchanged.
-
-Run from the repository root, e.g.
+The MLP's ReLU is replaced by 2 * |(x mod P) - P/2|; everything else is the
+repository's code unchanged.
 
     python train_triangle.py --period 2 --steps 3000
-    python train_triangle.py --period 43 --wp-zero          # also hard-codes W_p = 0
-
-Outputs, in --output (default experiment_results/):
-    triangle_P<period>_seed<seed>.pt          weights (CPU tensors), loadable with load_triangle.py
-    triangle_P<period>_seed<seed>_metrics.csv train/test loss and accuracy every --log-every steps
+    python train_triangle.py --period 2 --save triangle_P2.pt    # also save the weights
 """
 
 import argparse
-import csv
 import dataclasses
-import time
-from pathlib import Path
 
 import torch
 
@@ -32,7 +22,7 @@ from unembedding import unembedding
 
 
 def triangle_wave(period):
-    "Continuous periodic activation: 2 * |(x mod P) - P/2|, ranging over [0, P]."
+    "Continuous periodic activation 2 * |(x mod P) - P/2|, ranging over [0, P]."
     return lambda x: 2 * torch.abs(torch.remainder(x, period) - period / 2)
 
 
@@ -42,16 +32,15 @@ class triangle_model(model):
     def __init__(self, conf, period):
         super().__init__(conf)
         self.period = period
-        self.activation = triangle_wave(period)
 
     def forward(self, x):
         x1 = attention(self, embedding(self, x))
-        hidden = self.activation(x1 @ self.W_i + self.b_i)
+        hidden = triangle_wave(self.period)(x1 @ self.W_i + self.b_i)
         return unembedding(self, hidden @ self.W_o + self.b_o)
 
 
-def make_split(conf, train_frac, split_seed, device):
-    "Shuffle all N**2 equations with a fixed seed and split them; same split for every run."
+def make_split(conf, device, train_frac=0.8, split_seed=0):
+    "Shuffle all N**2 equations with a fixed seed and split them."
     torch.manual_seed(split_seed)
     X, Y = generate_data_tensor(conf)
     n_train = round(train_frac * len(X))
@@ -62,68 +51,38 @@ def make_split(conf, train_frac, split_seed, device):
 def evaluate(net, X, Y):
     "Answer-token loss and accuracy."
     logits = net(X)
-    loss = loss_fn(Y, logits).item()
     accuracy = (logits[:, -1].argmax(-1) == Y[:, -1].argmax(-1)).float().mean().item()
-    return loss, accuracy
-
-
-def freeze_positional_embedding(net):
-    "Hard-code W_p = 0. With no gradient, AdamW skips it entirely (weight decay included)."
-    with torch.no_grad():
-        net.W_p.zero_()
-    net.W_p.requires_grad_(False)
-
-
-def train(net, X_train, Y_train, X_test, Y_test, steps, log_every):
-    "Full-batch training. Returns one metrics row per logged step."
-    rows = []
-    start = time.time()
-    for step in range(steps + 1):
-        if step % log_every == 0 or step == steps:
-            train_loss, train_acc = evaluate(net, X_train, Y_train)
-            test_loss, test_acc = evaluate(net, X_test, Y_test)
-            rows.append({"step": step, "train_loss": train_loss, "test_loss": test_loss,
-                         "train_acc": train_acc, "test_acc": test_acc})
-            print(f"step {step:5d}  train loss {train_loss:.4f}  acc {train_acc:.3f}   "
-                  f"test loss {test_loss:.4f}  acc {test_acc:.3f}   ({time.time() - start:.0f}s)")
-        if step < steps:
-            net.train(X_train, Y_train)   # the repository's name for one AdamW step
-    return rows
+    return loss_fn(Y, logits).item(), accuracy
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--period", type=float, default=2.0, help="period P of the triangle wave")
+    parser.add_argument("--period", type=float, default=2.0)
     parser.add_argument("--steps", type=int, default=3000)
-    parser.add_argument("--seed", type=int, default=1, help="seed for the weight initialization")
-    parser.add_argument("--split-seed", type=int, default=0, help="seed for the train/test shuffle")
-    parser.add_argument("--train-frac", type=float, default=0.8)
-    parser.add_argument("--log-every", type=int, default=25)
-    parser.add_argument("--wp-zero", action="store_true", help="hard-code the positional embedding W_p to 0")
-    parser.add_argument("--output", type=Path, default=Path("experiment_results"))
-    parser.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
+    parser.add_argument("--seed", type=int, default=1)
+    parser.add_argument("--log-every", type=int, default=100)
+    parser.add_argument("--save", metavar="PATH", help="save the trained weights here (default: don't)")
     args = parser.parse_args()
 
-    tag = f"triangle_P{args.period:g}_seed{args.seed}" + ("_wp0" if args.wp_zero else "")
-    conf = dataclasses.replace(default_config, logdir=f"runs/{tag}")
-    X_train, Y_train, X_test, Y_test = make_split(conf, args.train_frac, args.split_seed, args.device)
-    print(f"modulus {conf.modulus}, {conf.num_heads} head(s): {len(X_train)} training pairs, "
-          f"{len(X_test)} held out, device {args.device}")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    conf = dataclasses.replace(default_config, logdir=f"runs/triangle_P{args.period:g}")
+    X_train, Y_train, X_test, Y_test = make_split(conf, device)
 
     torch.manual_seed(args.seed)
-    net = triangle_model(conf, args.period).to(args.device)
-    if args.wp_zero:
-        freeze_positional_embedding(net)
+    net = triangle_model(conf, args.period).to(device)
 
-    rows = train(net, X_train, Y_train, X_test, Y_test, args.steps, args.log_every)
+    for step in range(args.steps + 1):
+        if step % args.log_every == 0 or step == args.steps:
+            train_loss, train_acc = evaluate(net, X_train, Y_train)
+            test_loss, test_acc = evaluate(net, X_test, Y_test)
+            print(f"step {step:5d}  train loss {train_loss:.4f} acc {train_acc:.3f}   "
+                  f"test loss {test_loss:.4f} acc {test_acc:.3f}")
+        if step < args.steps:
+            net.train(X_train, Y_train)
 
-    args.output.mkdir(parents=True, exist_ok=True)
-    torch.save({name: tensor.cpu() for name, tensor in net.state_dict().items()}, args.output / f"{tag}.pt")
-    with (args.output / f"{tag}_metrics.csv").open("w", newline="") as file:
-        writer = csv.DictWriter(file, fieldnames=rows[0].keys())
-        writer.writeheader()
-        writer.writerows(rows)
-    print(f"saved {args.output / tag}.pt and {args.output / tag}_metrics.csv")
+    if args.save:
+        torch.save({name: tensor.cpu() for name, tensor in net.state_dict().items()}, args.save)
+        print(f"saved {args.save}")
 
 
 if __name__ == "__main__":
